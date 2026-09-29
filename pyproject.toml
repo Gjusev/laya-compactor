@@ -12,6 +12,9 @@ license = { text = "Apache-2.0" }
 keywords = ["rag", "context-compaction", "token-optimization", "laya", "system-one"]
 dependencies = ["laya>=0.3"]
 
+[project.scripts]
+laya-compact = "laya_compactor.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
@@ -21,3 +24,7 @@ packages = ["src/laya_compactor"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "slow: loads the real laya checkpoint (downloads on first run); opt in with: pytest -m slow",
+]
+addopts = "-m 'not slow'"
