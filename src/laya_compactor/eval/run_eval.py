@@ -104,6 +104,10 @@ def main(argv=None) -> int:
         json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     table = render_table(summarize(all_rows), args.price_input, args.price_output)
     (out_dir / "table.md").write_text(table, encoding="utf-8")
+    from laya_compactor.eval.plot import render_scatter_svg
+
+    (out_dir / "summary.svg").write_text(
+        render_scatter_svg(summary), encoding="utf-8")
     print(table)
     return 0
 
