@@ -1,0 +1,31 @@
+{
+  "what": "Raw output of python -m laya_compactor.sensitivity on the packaged 100-row dataset",
+  "checkpoint": "convaiinnovations/laya",
+  "device": "cpu",
+  "rows": 100,
+  "report": {
+    "n": 100,
+    "per_variant": {
+      "default": {
+        "n": 100,
+        "mean_score": 1.354512,
+        "agreement": 0.68,
+        "mae": 0.429944
+      },
+      "v2_question_first": {
+        "n": 100,
+        "mean_score": 1.4393029999999998,
+        "agreement": 0.53,
+        "mae": 0.471959
+      },
+      "v3_needle": {
+        "n": 100,
+        "mean_score": 1.403587,
+        "agreement": 0.68,
+        "mae": 0.41908500000000004
+      }
+    },
+    "spread_mean": 0.2352,
+    "full_agreement": 0.62
+  }
+}
