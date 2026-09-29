@@ -78,6 +78,19 @@ def test_wires_into_contextual_compression_retriever():
     assert [r.page_content for r in results] == [DOCS[2]]
 
 
+def test_async_compression_matches_sync():
+    import asyncio
+
+    compressor = LayaCompactor(budget=100, agent=make_agent(),
+                               token_counter=word_counter)
+    documents = [Document(page_content=d) for d in DOCS]
+
+    kept = asyncio.run(compressor.acompress_documents(
+        documents, "Who designed the Eiffel Tower?"))
+
+    assert [d.page_content for d in kept] == [DOCS[2]]
+
+
 # -- LlamaIndex --------------------------------------------------------------
 
 from llama_index.core.postprocessor.types import BaseNodePostprocessor

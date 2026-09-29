@@ -130,6 +130,22 @@ Gold-doc retention (`gold_kept`) is reported per policy so the multi-hop
 failure mode is measurable, not hidden: if laya-compactor cuts bridge docs on
 HotpotQA, the table shows it.
 
+### Results
+
+Filled by `make eval`; the chart lands in `eval/results/summary.svg`
+(input tokens vs exact match). Until a keyed run happens, every cell below
+stays an explicit placeholder — no invented numbers:
+
+| Metric | full | head | tail | laya-compactor |
+|---|---|---|---|---|
+| Avg input tokens | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
+| Exact match (HotpotQA) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
+| Exact match (SQuAD) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
+| LLM-judge win-rate vs full | 100% (ref) | TODO(measure) | TODO(measure) | TODO(measure) |
+| Gold docs kept (HotpotQA) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
+| $ per 1,000 questions | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
+| Compaction latency p50 (ms) | — | — | — | TODO(measure) |
+
 ## Integrations
 
 Both wrappers take the same options as `compact()` (`budget`, `min_score`,

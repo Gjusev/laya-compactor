@@ -4,10 +4,10 @@ Plugs into ContextualCompressionRetriever so any LangChain retriever gets
 laya-compactor's budgeted relevance selection as its compression step.
 """
 
+import asyncio
 from typing import Any, Callable, Optional, Sequence
 
 from langchain.retrievers.document_compressors.base import BaseDocumentCompressor
-from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.documents import Document
 
 from laya_compactor.core import CompactResult, compact, default_token_counter
@@ -57,4 +57,6 @@ class LayaCompactor(BaseDocumentCompressor):
         query: str,
         callbacks=None,
     ) -> Sequence[Document]:
-        return self.compress_documents(documents, query, callbacks)
+        # the forward pass is blocking CPU work: keep it off the event loop
+        return await asyncio.to_thread(
+            self.compress_documents, documents, query, callbacks)

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2"]
-POLICY_ORDER = ["full", "head_truncate", "tail_truncate", "laya_compactor"]
 
 
 def render_scatter_svg(summary: Dict[str, dict], width: int = 640,
@@ -51,7 +50,6 @@ def render_scatter_svg(summary: Dict[str, dict], width: int = 640,
                      f' stroke="#e5e7eb"/>')
         parts.append(f'<text x="{left - 8}" y="{y + 4:.1f}" font-size="10" text-anchor="end">'
                      f'{frac:.1f}</text>')
-    parts.append(f'<text x="{left - 8}" y="{top + plot_h + 4}" font-size="10" text-anchor="end">0</text>')
     parts.append(f'<text x="{left + plot_w}" y="{top + plot_h + 16}" font-size="10" '
                  f'text-anchor="middle">{max_x:.0f}</text>')
 
