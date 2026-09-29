@@ -44,3 +44,10 @@ def test_baselines_report_cut_docs_and_reason():
     _, head_stats = head_truncate(DOCS, budget=3, token_counter=word_counter)
     assert head_stats["docs_cut"] == 2
     assert all("budget" in r for r in head_stats["cut_reasons"])
+
+
+def test_truncation_handles_duplicate_docs_correctly():
+    docs = ["a a", "a a", "b"]  # identical texts, distinct positions
+    kept, stats = head_truncate(docs, budget=3, token_counter=word_counter)
+    assert kept == ["a a", "b"]  # first duplicate kept, second skipped, b still fits
+    assert stats["docs_kept"] == 2 and stats["docs_cut"] == 1

@@ -8,6 +8,7 @@ Prompts are fixed and identical across all eval configurations.
 
 import os
 import re
+import time
 from typing import Dict, List, Optional, Sequence, Tuple
 
 
@@ -52,19 +53,27 @@ class OpenAIChat:
     def complete(self, messages: List[dict], temperature: float) -> Tuple[str, Dict[str, int]]:
         import requests  # deferred: keeps unit-test import time tiny
 
-        response = requests.post(
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": self.model, "messages": messages,
-                  "temperature": temperature},
-            timeout=120,
-        )
-        response.raise_for_status()
-        data = response.json()
-        usage = data.get("usage", {})
-        return (data["choices"][0]["message"]["content"],
-                {"prompt_tokens": usage.get("prompt_tokens", 0),
-                 "completion_tokens": usage.get("completion_tokens", 0)})
+        # A full eval makes ~1000 calls; retrying transient failures is the
+        # difference between one bad minute and losing the run.
+        retryable = {429, 500, 502, 503, 504}
+        for attempt in range(3):
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json={"model": self.model, "messages": messages,
+                      "temperature": temperature},
+                timeout=120,
+            )
+            if response.status_code in retryable and attempt < 2:
+                time.sleep(2.0 * (attempt + 1))
+                continue
+            response.raise_for_status()
+            data = response.json()
+            usage = data.get("usage", {})
+            return (data["choices"][0]["message"]["content"],
+                    {"prompt_tokens": usage.get("prompt_tokens", 0),
+                     "completion_tokens": usage.get("completion_tokens", 0)})
+        raise RuntimeError("unreachable")
 
 
 class OpenAIGenerator:

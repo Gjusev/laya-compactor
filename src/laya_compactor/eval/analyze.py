@@ -23,13 +23,15 @@ def summarize(rows: List[dict]) -> Dict[Tuple[str, str], dict]:
             ties = verdicts.count("tie")
             win_rate = (wins + 0.5 * ties) / len(verdicts)
         latencies = [r["compaction_ms"] for r in group if r["compaction_ms"] is not None]
+        golds = [g for g in (r.get("gold_kept") for r in group) if g is not None]
         out[key] = {
             "n": n,
             "em": sum(r["em"] for r in group) / n,
             "avg_input_tokens": sum(r["input_tokens"] for r in group) / n,
             "avg_output_tokens": sum(r["output_tokens"] for r in group) / n,
             "avg_kept_tokens": sum(r.get("kept_tokens", 0) for r in group) / n,
-            "gold_kept": sum(r.get("gold_kept", 0.0) for r in group) / n,
+            "gold_kept": sum(golds) / len(golds) if golds else None,
+            "judge_errors": sum(1 for r in group if r.get("judge_error")),
             "win_rate_vs_full": win_rate,
             "judge_wins": verdicts.count("candidate"),
             "judge_ties": verdicts.count("tie"),

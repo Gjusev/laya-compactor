@@ -65,3 +65,69 @@ def test_judge_parses_each_verdict_word_and_rejects_garbage():
             "Q?", ["a"], "ref", "cand") == expected
     with pytest.raises(ValueError, match="judge"):
         OpenAIJudge(chat=FakeChat("banana")).judge("Q?", ["a"], "ref", "cand")
+
+
+def test_chat_retries_transient_failures_then_succeeds(monkeypatch):
+    import requests
+
+    import laya_compactor.eval.generate as gen_mod
+
+    calls = []
+
+    class Resp:
+        def __init__(self, status, payload):
+            self.status_code = status
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(f"{self.status_code}")
+
+    good = Resp(200, {"choices": [{"message": {"content": "ok"}}],
+                      "usage": {"prompt_tokens": 5, "completion_tokens": 1}})
+
+    def fake_post(*args, **kwargs):
+        calls.append(args)
+        if len(calls) < 3:
+            return Resp(429, {})
+        return good
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    monkeypatch.setattr(gen_mod.time, "sleep", lambda s: None)
+
+    chat = gen_mod.OpenAIChat()
+    content, usage = chat.complete([{"role": "user", "content": "hi"}], 0.0)
+
+    assert content == "ok"
+    assert usage == {"prompt_tokens": 5, "completion_tokens": 1}
+    assert len(calls) == 3  # two 429s, then success
+
+
+def test_chat_does_not_retry_hard_client_errors(monkeypatch):
+    import requests
+
+    import laya_compactor.eval.generate as gen_mod
+
+    calls = []
+
+    class Resp:
+        status_code = 401
+
+        def json(self):
+            return {}
+
+        def raise_for_status(self):
+            raise requests.HTTPError("401")
+
+    def fake_post(*args, **kwargs):
+        calls.append(args)
+        return Resp()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    chat = gen_mod.OpenAIChat()
+    with pytest.raises(requests.HTTPError):
+        chat.complete([{"role": "user", "content": "hi"}], 0.0)
+    assert len(calls) == 1

@@ -130,3 +130,34 @@ def test_judge_pass_compares_against_the_full_reference_answer():
     by_policy = {r["policy"]: r for r in rows}
     assert by_policy["full"]["judge"] is None  # the reference is not judged against itself
     assert by_policy["head_truncate"]["judge"] == "candidate"
+    assert by_policy["head_truncate"]["judge_error"] is None
+
+
+def test_judge_failure_marks_the_row_instead_of_killing_the_pass():
+    q = make_question()
+    gen = ScriptedGenerator(["full answer", "head answer"])
+    rows = run_generation_pass([q], policies=["full", "head_truncate"], budget=100,
+                               k=3, generator=gen, agent=ScoreGoldHighAgent(),
+                               token_counter=word_counter)
+
+    class BrokenJudge:
+        def judge(self, *args, **kwargs):
+            raise ValueError("judge returned unparseable verdict: 'banana'")
+
+    rows = run_judge_pass(rows, judge=BrokenJudge())
+
+    by_policy = {r["policy"]: r for r in rows}
+    assert by_policy["head_truncate"]["judge"] is None
+    assert "unparseable" in by_policy["head_truncate"]["judge_error"]
+
+
+def test_question_without_gold_indices_reports_gold_kept_none():
+    q = Question(id="q2", question="?", gold_answers=["a"],
+                 docs=["doc one two"], gold_indices=[])
+    gen = ScriptedGenerator(["a"])
+
+    rows = run_generation_pass([q], policies=["full"], budget=10, k=3,
+                               generator=gen, agent=ScoreGoldHighAgent(),
+                               token_counter=word_counter)
+
+    assert rows[0]["gold_kept"] is None  # no gold marks: not counted as 0.0

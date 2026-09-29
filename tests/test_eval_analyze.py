@@ -74,3 +74,15 @@ def test_summarize_tolerates_rows_without_a_judge_field():
 
     assert s[("squad", "laya_compactor")]["win_rate_vs_full"] is None
     assert s[("squad", "laya_compactor")]["compaction_p50_ms"] == 30.0
+
+
+def test_summarize_skips_questions_without_gold_marks_and_counts_judge_errors():
+    rows = [row("squad", "laya_compactor", gold=None),
+            row("squad", "laya_compactor", gold=1.0)]
+    rows[0]["judge_error"] = "boom"
+
+    s = summarize(rows)
+
+    # only the question that has gold marks counts toward gold_kept
+    assert s[("squad", "laya_compactor")]["gold_kept"] == 1.0
+    assert s[("squad", "laya_compactor")]["judge_errors"] == 1

@@ -5,7 +5,7 @@ so the whole pipeline is unit-testable offline; run_eval wires the real ones.
 """
 
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from laya_compactor.core import compact
 from laya_compactor.eval import baselines
@@ -15,7 +15,7 @@ from laya_compactor.eval.retrieval import retrieve
 
 
 def _apply_policy(policy: str, query: str, docs: List[str], budget: int,
-                  agent, token_counter: Callable[[str], int]) -> (List[str], dict):
+                  agent, token_counter: Callable[[str], int]) -> Tuple[List[str], dict]:
     if policy == "laya_compactor":
         t0 = time.perf_counter()
         result = compact(query, docs, budget, agent=agent,
@@ -51,8 +51,10 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
                                         agent, token_counter)
             gen = generator.generate(q.question, kept)
             kept_set = set(kept)
-            gold_total = len(q.gold_indices) or 1
-            gold_kept = sum(1 for i in q.gold_indices if q.docs[i] in kept_set)
+            gold_kept = None
+            if q.gold_indices:
+                hit = sum(1 for i in q.gold_indices if q.docs[i] in kept_set)
+                gold_kept = hit / len(q.gold_indices)
             rows.append({
                 "qid": q.id,
                 "question": q.question,
@@ -65,7 +67,7 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
                 "kept_tokens": stats["kept_tokens"],
                 "retrieved_docs": len(retrieved),
                 "kept_docs": stats["docs_kept"],
-                "gold_kept": gold_kept / gold_total,
+                "gold_kept": gold_kept,
                 "compaction_ms": stats["compaction_ms"],
                 "error": None,
             })
@@ -73,13 +75,20 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
 
 
 def run_judge_pass(rows: List[dict], judge) -> List[dict]:
-    """Attach pairwise verdicts: every non-full row vs its question's full row."""
+    """Attach pairwise verdicts: every non-full row vs its question's full row.
+    A judge failure marks the row (judge=None + judge_error) instead of
+    killing the whole pass."""
     reference = {r["qid"]: r["answer"] for r in rows if r["policy"] == "full"}
     out = []
     for r in rows:
         if r["policy"] == "full" or r["qid"] not in reference:
             out.append(dict(r, judge=None))
             continue
-        out.append(dict(r, judge=judge.judge(
-            r["question"], r["gold_answers"], reference[r["qid"]], r["answer"])))
+        try:
+            verdict = judge.judge(
+                r["question"], r["gold_answers"], reference[r["qid"]], r["answer"])
+        except Exception as exc:  # unparseable verdict, API error, ...
+            out.append(dict(r, judge=None, judge_error=str(exc)))
+            continue
+        out.append(dict(r, judge=verdict, judge_error=None))
     return out

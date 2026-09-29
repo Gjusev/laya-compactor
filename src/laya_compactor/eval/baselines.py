@@ -10,37 +10,31 @@ from typing import Callable, List, Tuple
 
 def _truncate(docs: List[str], budget: int, token_counter: Callable[[str], int],
               policy: str, drop_from_front: bool) -> Tuple[List[str], dict]:
-    order = list(reversed(docs)) if drop_from_front else list(docs)
-    kept: List[str] = []
+    """Greedily fit docs into the budget, scanning from one end; docs that do
+    not fit are skipped (smaller ones after them may still fit)."""
+    order = range(len(docs)) if not drop_from_front else range(len(docs) - 1, -1, -1)
+    kept_indices: List[int] = []
     kept_tokens = 0
-    for doc in order:
-        tokens = token_counter(doc)
-        if kept_tokens + tokens > budget:
-            continue
-        kept.append(doc)
-        kept_tokens += tokens
-    if drop_from_front:
-        kept.reverse()  # restore retrieval order for the prompt
-    kept_set = set(range(len(kept)))
-    # rebuild cut list from the original order for stable reasons
-    kept_docs = kept
-    cut = []
-    seen_kept = list(kept_docs)
-    for doc in docs:
-        if doc in seen_kept:
-            seen_kept.remove(doc)
-            continue
-        tokens = token_counter(doc)
-        cut.append(f"budget: needs {tokens} tokens, no room left")
+    for i in order:
+        tokens = token_counter(docs[i])
+        if kept_tokens + tokens <= budget:
+            kept_indices.append(i)
+            kept_tokens += tokens
+    kept = [docs[i] for i in sorted(kept_indices)]
+    kept_set = set(kept_indices)
+    cut_reasons = [
+        f"budget: needs {token_counter(doc)} tokens, no room left"
+        for i, doc in enumerate(docs) if i not in kept_set
+    ]
     stats = {
         "policy": policy,
         "docs_total": len(docs),
-        "docs_kept": len(kept_docs),
-        "docs_cut": len(cut),
+        "docs_kept": len(kept),
+        "docs_cut": len(cut_reasons),
         "kept_tokens": kept_tokens,
-        "cut_reasons": cut,
+        "cut_reasons": cut_reasons,
     }
-    return kept_docs, stats
+    return kept, stats
 
 
 def full(docs: List[str], budget: int, token_counter: Callable[[str], int]) -> Tuple[List[str], dict]:
