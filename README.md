@@ -130,13 +130,54 @@ Gold-doc retention (`gold_kept`) is reported per policy so the multi-hop
 failure mode is measurable, not hidden: if laya-compactor cuts bridge docs on
 HotpotQA, the table shows it.
 
+## Integrations
+
+Both wrappers take the same options as `compact()` (`budget`, `min_score`,
+injectable `agent`/`token_counter`) and keep the surviving items verbatim,
+most relevant first.
+
+**LangChain** (`pip install "laya-compactor[integrations]"`, query-aware
+`BaseDocumentCompressor` for any retriever):
+
+```python
+from laya_compactor.integrations.langchain import LayaCompactor
+from langchain.retrievers import ContextualCompressionRetriever
+
+retriever = ContextualCompressionRetriever(
+    base_retriever=your_retriever,
+    base_compressor=LayaCompactor(budget=1500),
+)
+results = retriever.invoke("Who designed the Eiffel Tower?")
+# kept Documents carry their laya score in metadata["laya_score"]
+```
+
+**LlamaIndex** (`NodePostprocessor` for any query engine):
+
+```python
+from laya_compactor.integrations.llamaindex import LayaCompactorPostprocessor
+
+query_engine = index.as_query_engine(
+    node_postprocessors=[LayaCompactorPostprocessor(budget=1500)],
+)
+```
+
+A runnable demo with the real checkpoint lives at
+`examples/compact_demo.py` — it compacts 8 passages about the invention of
+the telephone and prints what survived, what was cut, and each reason line.
+
+## Launch kit
+
+Draft posts (with the measured sensitivity numbers and TODO(measure) eval
+placeholders — nothing invented) are in `docs/launch/`: `linkedin_post.md`
+and `devto_post.md`. Publish after a real `make eval` run fills the table.
+
 ## Roadmap
 
 - [x] Core: `compact(query, docs, budget)` with batched relevance scoring and budget-aware selection
 - [x] Rubric sensitivity study: three phrasings over a small hand-labeled set, variance published
 - [x] CLI for batch compaction of JSONL documents
 - [x] Eval harness: RAG over public QA datasets comparing full context vs head/tail truncation vs laya-compactor
-- [ ] Integrations: LangChain retriever wrapper and LlamaIndex node postprocessor
+- [x] Integrations: LangChain retriever wrapper and LlamaIndex node postprocessor
 
 ## Honest limitations
 
