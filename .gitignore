@@ -17,3 +17,4 @@ htmlcov/
 .DS_Store
 Thumbs.db
 *.stackdump
+eval/results/

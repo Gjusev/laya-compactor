@@ -16,7 +16,8 @@ dependencies = ["laya>=0.3"]
 laya-compact = "laya_compactor.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+eval = ["datasets>=2.20", "rank-bm25>=0.2.2", "tiktoken>=0.7"]
+dev = ["pytest>=8", "laya-compactor[eval]"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/laya_compactor"]
