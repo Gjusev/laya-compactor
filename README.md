@@ -94,12 +94,48 @@ and all three phrasings agree on the rounded level for only 62% of rows. The
 default phrasing is kept as the default for that reason; the spread is the
 number to watch as the rubric evolves.
 
+## Eval harness
+
+Reproducible RAG benchmark comparing four context policies — **full** (no
+budget, the reference), **head-truncation**, **tail-truncation** and
+**laya-compactor** — over the same BM25 retrieval, the same generator and the
+same fixed prompts. The three budgeted policies share one token budget
+(tiktoken `cl100k_base`), so the only difference is *what* gets cut.
+
+```bash
+make eval    # = python -m laya_compactor.eval.run_eval --n 200
+make smoke   # 3 questions per dataset, no LLM calls (no key needed)
+```
+
+`make eval` needs `OPENAI_API_KEY` (or an OpenAI-compatible
+`OPENAI_BASE_URL`) and writes `eval/results/rows.jsonl`, `summary.json` and
+`table.md` — the metrics table reproduced from scratch. Metrics: average
+input/output tokens, exact match (SQuAD-style normalization), LLM-judge
+win-rate vs the full-context answer (fixed rubric, length-neutral rule,
+temperature 0; ties count half), gold-doc retention, compaction latency p50
+and computed cost per 1,000 questions from the `--price-input`/`--price-output`
+rates you pass (defaults: the listed gpt-4o-mini rates; they are inputs, not
+measurements).
+
+Datasets: **HotpotQA** distractor-validation (multi-hop, its own 10-paragraph
+candidate set including distractors — the deliberately hard case: bridge docs
+look like background) and **SQuAD** validation as the single-hop arm. The plan
+named NQ; NQ-open ships no passages and streaming full NQ for 200 rows pulls
+multi-GB shards, so SQuAD fills the same role self-contained — swapping NQ in
+is one loader in `laya_compactor/eval/datasets.py`. Subsets are chosen with a
+fixed seed via streaming shuffle; fix the `datasets` version for bit-exact
+reproductions.
+
+Gold-doc retention (`gold_kept`) is reported per policy so the multi-hop
+failure mode is measurable, not hidden: if laya-compactor cuts bridge docs on
+HotpotQA, the table shows it.
+
 ## Roadmap
 
 - [x] Core: `compact(query, docs, budget)` with batched relevance scoring and budget-aware selection
 - [x] Rubric sensitivity study: three phrasings over a small hand-labeled set, variance published
 - [x] CLI for batch compaction of JSONL documents
-- [ ] Eval harness: RAG over public QA datasets comparing full context vs head/tail truncation vs laya-compactor
+- [x] Eval harness: RAG over public QA datasets comparing full context vs head/tail truncation vs laya-compactor
 - [ ] Integrations: LangChain retriever wrapper and LlamaIndex node postprocessor
 
 ## Honest limitations
