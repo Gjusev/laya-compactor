@@ -122,6 +122,19 @@ Useful options:
 
 </details>
 
+<details>
+<summary><strong>Or run it on Kaggle (no install, no keys)</strong></summary>
+
+[![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/code/gjusev/laya-compactor-demo)
+
+A public notebook installs laya-compactor from this repository, loads the real
+checkpoint and reproduces the demo plus the rubric sensitivity study on
+Kaggle's free CPU tier. Scoring is deterministic, so the notebook prints its
+measured sensitivity numbers side by side with the ones published in this
+README.
+
+</details>
+
 ## How it works
 
 ![Pipeline diagram showing query-aware scoring, ranking and budget-based document removal](docs/how-it-works.svg)
