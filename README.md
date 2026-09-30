@@ -16,8 +16,11 @@ the open-source System 1 decision engine (Apache 2.0).
    4-level relevance rubric (0 irrelevant → 3 essential).
 2. Docs are ranked by score; the highest-scoring docs that fit the token budget
    are kept **verbatim** — nothing is ever rewritten or summarized, only
-   deleted (the same delete-don't-rewrite principle as
+   deleted. Same delete-don't-rewrite principle as
    [fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction),
+   but inverted: they ask N questions about one transcript; we ask one
+   question about N docs in a single forward pass (side-by-side:
+   [docs/comparison-fast-jev.md](docs/comparison-fast-jev.md)).
    the leading Jev-ecosystem compactor — but inverted: they ask N questions
    about one transcript, we ask one question about N docs in a single forward
    pass).
