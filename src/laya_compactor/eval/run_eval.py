@@ -78,26 +78,32 @@ def main(argv=None) -> int:
         judge = None
 
     policies = ["full", "head_truncate", "tail_truncate", "laya_compactor"]
-    all_rows = []
-    for name in [d.strip() for d in args.datasets.split(",") if d.strip()]:
-        print(f"[{name}] loading {args.n} questions (seed {args.seed})...", file=sys.stderr)
-        questions = LOADERS[name](args.n, args.seed)
-        print(f"[{name}] running {len(policies)} policies on {len(questions)} questions...",
-              file=sys.stderr)
-        rows = run_generation_pass(questions, policies, args.budget, args.k,
-                                   generator=generator, agent=agent,
-                                   token_counter=token_counter)
-        if judge is not None:
-            rows = run_judge_pass(rows, judge=judge)
-        for r in rows:
-            r["dataset"] = name
-        all_rows.extend(rows)
-
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    with (out_dir / "rows.jsonl").open("w", encoding="utf-8") as fh:
-        for r in all_rows:
-            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    all_rows = []
+    rows_path = out_dir / "rows.jsonl"
+    with rows_path.open("w", encoding="utf-8") as sink:
+        for name in [d.strip() for d in args.datasets.split(",") if d.strip()]:
+            print(f"[{name}] loading {args.n} questions (seed {args.seed})...",
+                  file=sys.stderr, flush=True)
+            questions = LOADERS[name](args.n, args.seed)
+            print(f"[{name}] running {len(policies)} policies on {len(questions)} "
+                  f"questions...", file=sys.stderr, flush=True)
+            rows = run_generation_pass(questions, policies, args.budget, args.k,
+                                       generator=generator, agent=agent,
+                                       token_counter=token_counter,
+                                       progress=lambda done, total: print(
+                                           f"\r[{name}] {done}/{total} questions",
+                                           end="", file=sys.stderr, flush=True))
+            print(file=sys.stderr)
+            if judge is not None:
+                rows = run_judge_pass(rows, judge=judge)
+            for r in rows:
+                r["dataset"] = name
+            all_rows.extend(rows)
+            for r in rows:  # flush per dataset: a late crash keeps finished work
+                sink.write(json.dumps(r, ensure_ascii=False) + "\n")
+            sink.flush()
 
     summary = {f"{ds}|{p}": s for (ds, p), s in summarize(all_rows).items()}
     (out_dir / "summary.json").write_text(

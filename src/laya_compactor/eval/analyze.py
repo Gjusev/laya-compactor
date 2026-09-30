@@ -71,7 +71,7 @@ def render_table(summaries: Dict[Tuple[str, str], dict],
                      + " | ".join(
                          _fmt(summaries[(dataset, p)]["compaction_p50_ms"])
                          for p in policies) + " |")
-        lines.append(f"| Cost per 1,000 questions ($, {price_input_per_m}/M in,"
+        lines.append(f"| Cost per 1,000 questions ({price_input_per_m}/M in,"
                      f" {price_output_per_m}/M out) | "
                      + " | ".join(
                          _fmt(cost_per_1k(summaries[(dataset, p)]["avg_input_tokens"],

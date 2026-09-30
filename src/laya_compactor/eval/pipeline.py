@@ -41,10 +41,14 @@ def _apply_policy(policy: str, query: str, docs: List[str], budget: int,
 
 def run_generation_pass(questions: List[Question], policies: List[str], budget: int,
                         k: int, generator, agent,
-                        token_counter: Callable[[str], int]) -> List[dict]:
-    """One row per (question, policy): EM, token usage, kept/gold-doc stats."""
+                        token_counter: Callable[[str], int],
+                        progress=None) -> List[dict]:
+    """One row per (question, policy): EM, token usage, kept/gold-doc stats.
+
+    progress(done, total) is called after each question for long-run monitoring.
+    """
     rows: List[dict] = []
-    for q in questions:
+    for done, q in enumerate(questions, start=1):
         retrieved = retrieve(q.question, q.docs, k)
         for policy in policies:
             kept, stats = _apply_policy(policy, q.question, retrieved, budget,
@@ -71,6 +75,8 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
                 "compaction_ms": stats["compaction_ms"],
                 "error": None,
             })
+        if progress is not None:
+            progress(done, len(questions))
     return rows
 
 
