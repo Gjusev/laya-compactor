@@ -53,7 +53,12 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
         for policy in policies:
             kept, stats = _apply_policy(policy, q.question, retrieved, budget,
                                         agent, token_counter)
-            gen = generator.generate(q.question, kept)
+            try:
+                gen = generator.generate(q.question, kept)
+                error = None
+            except Exception as exc:  # provider refusal/failure on this question
+                gen = {"answer": "", "input_tokens": 0, "output_tokens": 0}
+                error = str(exc)
             kept_set = set(kept)
             gold_kept = None
             if q.gold_indices:
@@ -73,7 +78,7 @@ def run_generation_pass(questions: List[Question], policies: List[str], budget: 
                 "kept_docs": stats["docs_kept"],
                 "gold_kept": gold_kept,
                 "compaction_ms": stats["compaction_ms"],
-                "error": None,
+                "error": error,
             })
         if progress is not None:
             progress(done, len(questions))
@@ -87,7 +92,7 @@ def run_judge_pass(rows: List[dict], judge) -> List[dict]:
     reference = {r["qid"]: r["answer"] for r in rows if r["policy"] == "full"}
     out = []
     for r in rows:
-        if r["policy"] == "full" or r["qid"] not in reference:
+        if r["policy"] == "full" or r["qid"] not in reference or r.get("error"):
             out.append(dict(r, judge=None))
             continue
         try:

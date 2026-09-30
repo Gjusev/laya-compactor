@@ -161,3 +161,49 @@ def test_question_without_gold_indices_reports_gold_kept_none():
                                token_counter=word_counter)
 
     assert rows[0]["gold_kept"] is None  # no gold marks: not counted as 0.0
+
+
+def test_generation_failure_marks_the_row_and_keeps_the_run_alive():
+    q1 = make_question()
+    q2 = Question(id="q2", question="Another?", gold_answers=["fine"],
+                  docs=["doc"], gold_indices=[0])
+
+    class FlakyGenerator:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, question, docs):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("400: provider refused this question")
+            return {"answer": "fine", "input_tokens": 9, "output_tokens": 3}
+
+    rows = run_generation_pass([q1, q2], policies=["full"], budget=100, k=3,
+                               generator=FlakyGenerator(), agent=ScoreGoldHighAgent(),
+                               token_counter=word_counter)
+
+    assert len(rows) == 2  # both questions completed
+    assert "provider refused" in rows[0]["error"]
+    assert rows[0]["em"] == 0 and rows[0]["input_tokens"] == 0
+    assert rows[1]["error"] is None and rows[1]["em"] == 1
+
+
+def test_judge_pass_skips_rows_whose_generation_failed():
+    q = make_question()
+    gen = ScriptedGenerator(["good answer", "good answer"])
+
+    class FailFirst(ScriptedGenerator):
+        def generate(self, question, docs):
+            out = super().generate(question, docs)
+            if out["answer"] == "FAIL":
+                raise RuntimeError("boom")
+            return out
+
+    rows = run_generation_pass([q], policies=["full", "head_truncate"], budget=100,
+                               k=3, generator=gen, agent=ScoreGoldHighAgent(),
+                               token_counter=word_counter)
+    rows[1]["error"] = "400: boom"  # simulate a failed generation
+
+    rows = run_judge_pass(rows, judge=ScriptedJudge(["candidate"]))
+
+    assert rows[1]["judge"] is None  # not judged against a failed answer

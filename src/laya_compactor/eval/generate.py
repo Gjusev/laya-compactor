@@ -67,7 +67,10 @@ class OpenAIChat:
             if response.status_code in retryable and attempt < 2:
                 time.sleep(2.0 * (attempt + 1))
                 continue
-            response.raise_for_status()
+            if response.status_code >= 400:
+                # keep the provider's error body: it names the real cause
+                raise requests.HTTPError(
+                    f"{response.status_code}: {response.text[:300]}", response=response)
             data = response.json()
             usage = data.get("usage", {})
             return (data["choices"][0]["message"]["content"],

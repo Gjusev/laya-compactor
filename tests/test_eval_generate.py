@@ -115,6 +115,7 @@ def test_chat_does_not_retry_hard_client_errors(monkeypatch):
 
     class Resp:
         status_code = 401
+        text = '{"error": "bad key"}'
 
         def json(self):
             return {}
