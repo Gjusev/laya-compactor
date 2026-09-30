@@ -66,7 +66,13 @@ a production path.
 
 ## Quick start
 
-Install from the repository with Python 3.10 or newer:
+Install with Python 3.10 or newer:
+
+```bash
+pip install laya-compactor
+```
+
+Or from the repository:
 
 ```bash
 git clone https://github.com/Gjusev/laya-compactor.git
