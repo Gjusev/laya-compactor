@@ -1,5 +1,11 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/logo.png">
+  <img src="docs/logo.png" alt="laya-compactor logo: document signals pass through a relevance filter and emerge as compact context" width="220">
+</picture>
+
 # laya-compactor
 
 <p><strong>Keep the evidence. Cut the noise.</strong></p>
