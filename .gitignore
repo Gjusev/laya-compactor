@@ -19,3 +19,5 @@ Thumbs.db
 *.stackdump
 eval/results*/
 brag-output/
+docs/launch/linkedin_post.md
+docs/launch/devto_post.md

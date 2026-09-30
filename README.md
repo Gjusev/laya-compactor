@@ -224,10 +224,9 @@ the telephone and prints what survived, what was cut, and each reason line.
 
 ## Launch kit
 
-Posts (with the measured numbers, humanized and ready to publish) are in
-`docs/launch/`: `linkedin_post.md` and `devto_post.md`. Share copy for the
-video lives next to the working files (see `brag-output/share-copy.txt`
-locally; that directory is not committed).
+The launch video and its poster live in `docs/launch/`. The written posts and
+the video's share copy are kept out of the repository (local only) and are
+published from the author's accounts.
 
 ## Roadmap
 
