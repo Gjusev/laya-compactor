@@ -1,202 +1,269 @@
+<div align="center">
+
 # laya-compactor
 
-> Context compaction for RAG and agents: score every retrieved chunk in one shared forward pass and cut what does not matter before it reaches the LLM.
+<p><strong>Keep the evidence. Cut the noise.</strong></p>
 
-Status: early development. Built on [laya](https://github.com/NandhaKishorM/laya),
-the open-source System 1 decision engine (Apache 2.0).
+Query-aware context compaction for RAG and agents. Score an entire retrieval
+batch in one local forward pass, then keep only the documents worth sending to
+your LLM.
 
-## Why
+[![CI](https://github.com/Gjusev/laya-compactor/actions/workflows/ci.yml/badge.svg)](https://github.com/Gjusev/laya-compactor/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-0.1.0-1f6c9f)](https://github.com/Gjusev/laya-compactor)
+[![License](https://img.shields.io/badge/license-Apache--2.0-4b5563)](LICENSE)
+[![Status](https://img.shields.io/badge/status-early%20development-f59e0b)](#status-and-limitations)
 
-- Context is the dominant cost of RAG. Context compaction is the #2 category by density in the Jev ecosystem (the leading project has 2.7k stars); nothing equivalent exists for the open-source stack.
-- laya's `predict_batch` scores a whole retrieval batch in one forward pass, so compaction adds milliseconds, not seconds.
+[Quick start](#quick-start) · [How it works](#how-it-works) ·
+[Benchmarks](#measured-results) · [Integrations](#integrations) ·
+[Limitations](#status-and-limitations)
 
-## How it works
+</div>
 
-1. Every retrieved doc is scored, in **one** `predict_batch` call, against a
-   4-level relevance rubric (0 irrelevant → 3 essential).
-2. Docs are ranked by score; the highest-scoring docs that fit the token budget
-   are kept **verbatim** — nothing is ever rewritten or summarized, only
-   deleted. Same delete-don't-rewrite principle as
-   [fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction),
-   but inverted: they ask N questions about one transcript; we ask one
-   question about N docs in a single forward pass (side-by-side:
-   [docs/comparison-fast-jev.md](docs/comparison-fast-jev.md)).
-   the leading Jev-ecosystem compactor — but inverted: they ask N questions
-   about one transcript, we ask one question about N docs in a single forward
-   pass).
-3. Docs scoring below `min_score` are cut even when budget remains; the rest are
-   cut lowest-score-first once the budget is exhausted. Every cut doc carries a
-   one-line reason.
+<a href="docs/launch/brag.mp4">
+  <img src=".media/images/image_001.webp" alt="Animated laya-compactor demo: retrieved documents are scored, ranked and cut to a token budget" width="100%">
+</a>
+
+<p align="center">
+  <a href="docs/launch/brag.mp4"><strong>▶ Watch the 18-second demo with sound</strong></a>
+  · H.264 MP4 · 1080p
+</p>
+
+> **Measured on SQuAD:** the same exact-match score as full context with **973
+> average input tokens instead of 3,214**. On HotpotQA, it retained **94.5% of
+> answer-bearing documents** while using 32% fewer input tokens than full
+> context. [See the full methodology and tradeoffs.](#measured-results)
+
+## Why laya-compactor?
+
+RAG pipelines often retrieve more text than the final model needs. Sending all
+of it raises token cost and can bury the useful evidence; truncating from the
+head or tail ignores the query.
+
+laya-compactor makes the cut deliberately:
+
+- **Query-aware:** each document is scored against the question that triggered
+  retrieval.
+- **One shared forward pass:** the whole batch is scored with laya's
+  `predict_batch`, rather than one model request per document.
+- **Local after download:** scoring runs with the open-source
+  [laya](https://github.com/NandhaKishorM/laya) checkpoint; there is no
+  per-compaction API call.
+- **Verbatim output:** documents are either kept whole or removed. Their text is
+  never rewritten or summarized.
+- **Auditable cuts:** every removed document includes its score and a concrete
+  reason, such as a low relevance score or an exhausted token budget.
+
+The project is in early development and publishes its losses alongside its
+wins. Read [Status and limitations](#status-and-limitations) before using it in
+a production path.
+
+## Quick start
+
+Install from the repository with Python 3.10 or newer:
+
+```bash
+git clone https://github.com/Gjusev/laya-compactor.git
+cd laya-compactor
+uv venv
+uv pip install -e .
+```
+
+Compact a retrieval batch to a token budget:
 
 ```python
 from laya_compactor import compact
 
-result = compact("Who designed the Eiffel Tower?", retrieved_docs, budget=4000)
-result.kept          # docs ordered most relevant first, verbatim
-result.cut           # what was dropped, each with .reason
-result.stats         # token counts, savings, docs kept/cut
+query = "Who designed the Eiffel Tower?"
+retrieved_docs = [
+    "Gustave Eiffel's company designed and built the Eiffel Tower.",
+    "The tower was completed in Paris in 1889.",
+    "The Berlin Wall fell in 1989.",
+]
+
+result = compact(query, retrieved_docs, budget=20)
+
+result.kept   # ScoredDoc objects, most relevant first, text unchanged
+result.cut    # CutDoc objects with a human-readable reason
+result.stats  # token counts, kept/cut totals and savings percentage
 ```
 
-`compact()` accepts an injected `agent` (anything exposing
-`predict_batch(states, questions)`), an injected `token_counter`, and a `rubric`
-variant name. Without an agent it lazily loads the real laya checkpoint
-(downloaded from the Hugging Face Hub on first use).
+The first run downloads the laya checkpoint from Hugging Face; later runs use
+the local cache. If the budget must match a provider exactly, pass that
+provider's tokenizer through `token_counter`. The dependency-free default is a
+deterministic word-count proxy.
 
-Token counting defaults to a deterministic offline word-count proxy; inject a
-real tokenizer when the budget must match a specific provider's counts.
-
-## CLI
+<details>
+<summary><strong>Use the command line</strong></summary>
 
 ```bash
-uv pip install -e .
-laya-compact --budget 4000 --query "Who designed the Eiffel Tower?" docs.jsonl
+laya-compact \
+  --budget 4000 \
+  --query "Who designed the Eiffel Tower?" \
+  docs.jsonl
 ```
 
-`docs.jsonl` holds one document per line (plain text, or a JSON object with a
-`"text"` field). The result prints as JSON: kept docs in relevance order, cut
-docs with reasons, and token stats. Options: `--min-score`, `--rubric
-(default|v2_question_first|v3_needle)`.
+`docs.jsonl` contains one document per line, either as plain text or as a JSON
+object with a `"text"` field. The command prints JSON with the kept documents,
+the cut documents and token statistics.
 
-## Rubric sensitivity
+Useful options:
 
-Rubric-based scoring is sensitive to phrasing, so the rubric ships in three
-phrasings and the repo publishes a **100-row hand-labeled mini-dataset**
-(`src/laya_compactor/data/relevance_mini_dataset.jsonl`; id, query, doc, gold
-label 0–3, rationale). Labels follow the convention: 3 states the asked fact,
-2 is the exact subject without the fact, 1 is a neighboring subject, 0 is a
-different topic. A few queries appear twice on purpose with contrasting docs —
-the pair (same query, relevant doc = 3, unrelated doc = 0) tests doc-side
-discrimination.
-
-Measure the phrasing sensitivity on your machine (loads the real checkpoint):
-
-```bash
-python -m laya_compactor.sensitivity            # packaged dataset
-python -m laya_compactor.sensitivity my.jsonl   # your own rows
+```text
+--min-score FLOAT
+--rubric default|v2_question_first|v3_needle
 ```
 
-Reported: per-variant agreement with the gold labels and mean absolute error,
-mean per-row score spread across phrasings, and the fraction of rows where all
-phrasings round to the same level. Measured results are published in the
-sensitivity table below — no number in this repo is invented.
+</details>
 
-Measured on the default English laya checkpoint, CPU, 100 rows (raw report:
-`eval/sensitivity_report.json`; rerun `python -m laya_compactor.sensitivity` to
-reproduce on your hardware — scoring is deterministic, so numbers repeat):
+## How it works
 
-| Metric (100 rows) | default | v2_question_first | v3_needle |
-|---|---|---|---|
-| Agreement with gold labels | 0.68 | 0.53 | 0.68 |
-| Mean absolute error | 0.43 | 0.47 | 0.42 |
-| Mean score spread across variants | 0.24 | | |
-| Rows where all variants round to the same level | 62% | | |
+![Pipeline diagram showing query-aware scoring, ranking and budget-based document removal](docs/how-it-works.svg)
 
-The phrasing effect the plan predicted is real and worth knowing: the
-question-first phrasing costs 15 points of gold agreement on the same data,
-and all three phrasings agree on the rounded level for only 62% of rows. The
-default phrasing is kept as the default for that reason; the spread is the
-number to watch as the rubric evolves.
+1. **Score the batch.** Each `(query, document)` pair receives a continuous
+   score against a four-level rubric: `0` irrelevant, `1` background, `2`
+   relevant and `3` essential. All pairs share one `predict_batch` call.
+2. **Rank by relevance.** Documents are ordered from highest to lowest score;
+   equal scores preserve the original retrieval order.
+3. **Apply the policy.** Documents below `min_score` are removed first. The
+   remaining documents are kept verbatim until the token budget is full.
+4. **Explain every cut.** The result records whether each document was removed
+   because of its score or because it no longer fit the budget.
 
-## Eval harness
-
-Reproducible RAG benchmark comparing four context policies — **full** (no
-budget, the reference), **head-truncation**, **tail-truncation** and
-**laya-compactor** — over the same BM25 retrieval, the same generator and the
-same fixed prompts. The three budgeted policies share one token budget
-(tiktoken `cl100k_base`), so the only difference is *what* gets cut.
-
-```bash
-make eval    # = python -m laya_compactor.eval.run_eval --n 200
-make smoke   # 3 questions per dataset, no LLM calls (no key needed)
+```text
+retrieved docs + query
+          │
+          ▼
+  one predict_batch call
+          │
+          ▼
+ relevance-ranked docs ──► min_score ──► token budget
+          │                                  │
+          └──────── kept verbatim ◄──────────┘
+                                             └── cut + reason
 ```
 
-`make eval` needs `OPENAI_API_KEY` (or an OpenAI-compatible
-`OPENAI_BASE_URL`) and writes `eval/results/rows.jsonl`, `summary.json` and
-`table.md` — the metrics table reproduced from scratch. Metrics: average
-input/output tokens, exact match (SQuAD-style normalization), LLM-judge
-win-rate vs the full-context answer (fixed rubric, length-neutral rule,
-temperature 0; ties count half), gold-doc retention, compaction latency p50
-and computed cost per 1,000 questions from the `--price-input`/`--price-output`
-rates you pass (defaults: the listed gpt-4o-mini rates; they are inputs, not
-measurements).
+`compact()` also accepts an injected `agent`, any object exposing
+`predict_batch(states, questions)`, plus a custom `token_counter` and rubric
+variant. This keeps the selection logic testable without loading the real
+checkpoint.
 
-Datasets: **HotpotQA** distractor-validation (multi-hop, its own 10-paragraph
-candidate set including distractors — the deliberately hard case: bridge docs
-look like background) and **SQuAD** validation as the single-hop arm. The plan
-named NQ; NQ-open ships no passages and streaming full NQ for 200 rows pulls
-multi-GB shards, so SQuAD fills the same role self-contained — swapping NQ in
-is one loader in `laya_compactor/eval/datasets.py`. Subsets are chosen with a
-fixed seed via streaming shuffle; fix the `datasets` version for bit-exact
-reproductions.
+## Measured results
 
-Gold-doc retention (`gold_kept`) is reported per policy so the multi-hop
-failure mode is measurable, not hidden: if laya-compactor cuts bridge docs on
-HotpotQA, the table shows it.
+![Benchmark comparison of average input tokens and exact match on SQuAD and HotpotQA](docs/eval-summary.svg)
 
-### Results
+The reported evaluation runs 200 questions from each dataset with the same
+BM25 retrieval, generator, judge, prompts and 1,000-token budget for all three
+budgeted policies. **Full** is the unbudgeted reference. The generator and judge
+were `glm-5.3-flash` through Z.ai's OpenAI-compatible API at temperature 0.
 
-Measured with the harness above: 200 questions per dataset, BM25 top-20,
-generator and judge both `glm-5.3-flash` (temperature 0) via the Z.ai
-OpenAI-compatible API, shared budget of 1,000 tokens for the three budgeted
-policies, cost computed at Z.ai's published GLM-5.3-Flash credit multipliers
-(2.3 input / 8 output per 1M tokens). 7 of 1,600 generations and 7 judge
-calls failed on provider 4xx errors and are recorded as such in
-`eval/results/rows.jsonl`. Chart: `docs/eval-summary.svg` (input tokens vs
-exact match). `make eval` reproduces every number.
+| Dataset | What the result says |
+| --- | --- |
+| **SQuAD · single-hop** | laya-compactor matched full context at **0.345 exact match** with **973 vs 3,214 average input tokens**. |
+| **HotpotQA · multi-hop** | It reached **0.200 vs 0.230 exact match**, retained **94.5% of gold documents**, and used **979 vs 1,440 average input tokens**. |
+| **Against truncation** | At the same budget, laya-compactor beat both head and tail truncation on exact match and gold-document retention for HotpotQA. |
 
-**HotpotQA (multi-hop — the hard case)**
+<details>
+<summary><strong>Full benchmark tables</strong></summary>
 
-| Metric | full | head | tail | laya-compactor |
-|---|---|---|---|---|
-| Avg input tokens | 1440 | 1042 | 1041 | **979** |
+### HotpotQA
+
+| Metric | full | head | tail | **laya-compactor** |
+| --- | ---: | ---: | ---: | ---: |
+| Average input tokens | 1,440 | 1,042 | 1,041 | **979** |
 | Exact match | **0.230** | 0.175 | 0.110 | 0.200 |
-| LLM-judge win-rate vs full | 100% (ref) | 0.431 | 0.350 | **0.495** |
-| Gold docs kept | 1.000 | 0.875 | 0.588 | **0.945** |
-| Cost per 1,000 questions (credits) | 4.31 | 3.62 | 4.27 | **3.45** |
+| LLM-judge win rate vs full | reference | 0.431 | 0.350 | **0.495** |
+| Gold documents kept | **100%** | 87.5% | 58.8% | 94.5% |
+| Cost / 1,000 questions, credits | 4.31 | 3.62 | 4.27 | **3.45** |
 | Compaction latency p50 | — | — | — | 6.3 s |
 
-**SQuAD (single-hop)**
+### SQuAD
 
-| Metric | full | head | tail | laya-compactor |
-|---|---|---|---|---|
-| Avg input tokens | 3214 | 1050 | 1040 | **973** |
-| Exact match | 0.345 | 0.320 | 0.265 | **0.345** |
-| LLM-judge win-rate vs full | 100% (ref) | 0.440 | 0.385 | **0.480** |
-| Gold docs kept | 0.735 | 0.590 | 0.495 | 0.655 |
-| Cost per 1,000 questions (credits) | 8.00 | 3.07 | 3.04 | **2.83** |
+| Metric | full | head | tail | **laya-compactor** |
+| --- | ---: | ---: | ---: | ---: |
+| Average input tokens | 3,214 | 1,050 | 1,040 | **973** |
+| Exact match | **0.345** | 0.320 | 0.265 | **0.345** |
+| LLM-judge win rate vs full | reference | 0.440 | 0.385 | **0.480** |
+| Gold documents kept | **73.5%** | 59.0% | 49.5% | 65.5% |
+| Cost / 1,000 questions, credits | 8.00 | 3.07 | 3.04 | **2.83** |
 | Compaction latency p50 | — | — | — | 10.0 s |
 
-Reading it honestly: on single-hop retrieval, compaction matches full-context
-quality (0.345 EM) at 30% of the tokens — the free lunch is real there. On
-multi-hop, laya-compactor keeps 87% of full's exact match (0.200 vs 0.230)
-with 68% of the tokens and beats both truncation baselines at the same
-budget, while retaining 94.5% of the answer-bearing documents (tail
-truncation keeps 58.8%). The residual gap on HotpotQA is the known cost of
-dropping any context; compaction latency p50 of 6–10 s per question is this
-desktop CPU, not the GPU figure laya documents — see limitations below.
+Seven of 1,600 generation calls and seven judge calls failed with provider 4xx
+responses. They remain recorded in `eval/results/rows.jsonl` rather than being
+silently removed. Costs use the supplied Z.ai GLM-5.3-Flash credit multipliers:
+2.3 input and 8 output credits per million tokens.
+
+</details>
+
+The multi-hop result is the important warning: deleting context can remove a
+bridge document even when it looks secondary in isolation. laya-compactor kept
+more answer-bearing documents than either truncation baseline, but it still
+lost three exact-match points against full context on HotpotQA.
+
+### Reproduce the evaluation
+
+```bash
+make smoke  # 3 questions per dataset, no LLM calls
+make eval   # 200 questions per dataset; requires OPENAI_API_KEY
+```
+
+`OPENAI_BASE_URL` can point the harness at another OpenAI-compatible provider.
+The full run writes `rows.jsonl`, `summary.json` and `table.md` under
+`eval/results/`. Metrics include exact match, judge win rate, gold-document
+retention, token counts, p50 compaction latency and computed cost.
+
+The datasets are HotpotQA distractor validation for multi-hop retrieval and
+SQuAD validation for single-hop retrieval. Subsets use a fixed seed with a
+streaming shuffle; pin the `datasets` package version for bit-exact reruns.
 
 ## Integrations
 
-Both wrappers take the same options as `compact()` (`budget`, `min_score`,
-injectable `agent`/`token_counter`) and keep the surviving items verbatim,
-most relevant first.
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src=".media/images/logo_001.svg" height="48" alt="Python logo"><br>
+      <strong>Python</strong><br>
+      Core API and JSONL CLI
+    </td>
+    <td align="center" width="33%">
+      <img src=".media/images/logo_002.svg" height="48" alt="LangChain logo"><br>
+      <strong>LangChain</strong><br>
+      Query-aware document compressor
+    </td>
+    <td align="center" width="33%">
+      <img src=".media/images/logo_003.png" height="48" alt="LlamaIndex logo"><br>
+      <strong>LlamaIndex</strong><br>
+      Node postprocessor
+    </td>
+  </tr>
+</table>
 
-**LangChain** (`pip install "laya-compactor[integrations]"`, query-aware
-`BaseDocumentCompressor` for any retriever):
+Install the optional integration dependencies:
+
+```bash
+uv pip install -e ".[integrations]"
+```
+
+<details open>
+<summary><strong>LangChain</strong></summary>
 
 ```python
-from laya_compactor.integrations.langchain import LayaCompactor
 from langchain.retrievers import ContextualCompressionRetriever
+from laya_compactor.integrations.langchain import LayaCompactor
 
 retriever = ContextualCompressionRetriever(
     base_retriever=your_retriever,
     base_compressor=LayaCompactor(budget=1500),
 )
+
 results = retriever.invoke("Who designed the Eiffel Tower?")
-# kept Documents carry their laya score in metadata["laya_score"]
+# Kept Documents include their score in metadata["laya_score"].
 ```
 
-**LlamaIndex** (`NodePostprocessor` for any query engine):
+</details>
+
+<details>
+<summary><strong>LlamaIndex</strong></summary>
 
 ```python
 from laya_compactor.integrations.llamaindex import LayaCompactorPostprocessor
@@ -206,63 +273,76 @@ query_engine = index.as_query_engine(
 )
 ```
 
-A runnable demo with the real checkpoint lives at
-`examples/compact_demo.py` — it compacts 8 passages about the invention of
-the telephone and prints what survived, what was cut, and each reason line.
+</details>
 
-## Visuals
+Both wrappers accept the core options: `budget`, `min_score`, `agent` and
+`token_counter`. Surviving items remain unchanged and are returned in relevance
+order.
 
-- **Launch video** (18 s): `docs/launch/brag.mp4` — hook, the one-forward-pass
-  scoring sequence with real demo scores, the measured table, outro. Poster
-  frame: `docs/launch/brag-poster.jpg`. Made with Hyperframes; music
-  "Happy Beats / Business Moves vol. 12" by ende.app.
-- **How it works** (static): `docs/how-it-works.svg` — the full pipeline on
-  one page.
-- **How it works** (animated): `docs/how-it-works-animation.html` — open in
-  any browser, no dependencies; score badges pop, weak docs get struck
-  through with their reason lines, the counter lands.
+## Rubric sensitivity
 
-## Launch kit
+Relevance models react to wording, so the repository ships three rubric
+phrasings and a [100-row, hand-labeled mini-dataset](src/laya_compactor/data/relevance_mini_dataset.jsonl).
+Each row contains a query, document, gold label from 0 to 3 and rationale.
 
-The launch video and its poster live in `docs/launch/`. The written posts and
-the video's share copy are kept out of the repository (local only) and are
-published from the author's accounts.
+Measured with the default English laya checkpoint on CPU:
 
-## Roadmap
+| Metric | default | v2_question_first | v3_needle |
+| --- | ---: | ---: | ---: |
+| Agreement with gold labels | **0.68** | 0.53 | **0.68** |
+| Mean absolute error | 0.43 | 0.47 | **0.42** |
+| Mean score spread across variants | 0.24 | — | — |
+| Rows where all variants round to the same level | 62% | — | — |
 
-- [x] Core: `compact(query, docs, budget)` with batched relevance scoring and budget-aware selection
-- [x] Rubric sensitivity study: three phrasings over a small hand-labeled set, variance published
-- [x] CLI for batch compaction of JSONL documents
-- [x] Eval harness: RAG over public QA datasets comparing full context vs head/tail truncation vs laya-compactor
-- [x] Integrations: LangChain retriever wrapper and LlamaIndex node postprocessor
+The default remains the default because the question-first phrasing lost 15
+percentage points of label agreement on the same data. Re-run the study on the
+packaged dataset or your own JSONL file:
 
-## Honest limitations
+```bash
+python -m laya_compactor.sensitivity
+python -m laya_compactor.sensitivity my_rows.jsonl
+```
 
-- Token counting is a proxy: the library default is a word count, and the eval
-  harness enforces budgets with tiktoken `cl100k_base` — a stand-in for any
-  specific provider's tokenizer. It is applied identically to every policy, so
-  the comparison stays fair; absolute budgets may drift a few percent.
-- Compaction latency is hardware-dependent: the measured p50 is 6–10 s per
-  question on this desktop CPU; laya documents ~35 ms per decision on a T4 GPU.
-  Same model, different silicon.
-- A relevance score is calibrated, not a proof: a doc cut at 0.9 might have
-  mattered. Tune `min_score` for your risk tolerance.
-- v1 is English-first (the default laya checkpoint); multilingual routing is a
-  later concern.
-- Multi-hop is the hard case and it is measured, not hidden: laya-compactor
-  kept 94.5% of answer-bearing HotpotQA docs but still lost 3 points of exact
-  match vs full context — cutting anything costs something on multi-hop.
+The raw checked-in report is at
+[`eval/sensitivity_report.json`](eval/sensitivity_report.json).
 
-## Development setup
+## Status and limitations
 
-Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/) (or any venv + pip):
+- **Early development:** the public API and rubric variants may still change.
+- **Token counts are configurable:** the library default uses a word-count
+  proxy. The benchmark uses `tiktoken` with `cl100k_base` for every policy, so
+  the comparison is consistent even though a provider's exact count may differ.
+- **CPU latency is material:** measured p50 compaction time was 6.3 seconds on
+  HotpotQA and 10.0 seconds on SQuAD on the evaluation desktop. Hardware and
+  batch shape affect this substantially.
+- **Scores are estimates:** a document cut at 0.9 may still matter. Tune
+  `min_score` for the cost of a false negative in your application.
+- **English first:** v0.1 uses laya's default English checkpoint.
+- **Multi-hop remains hard:** isolated relevance scoring can undervalue bridge
+  documents. The HotpotQA benchmark measures that failure mode explicitly.
+
+## Development
 
 ```bash
 uv venv
 uv pip install -e ".[dev]"
-pytest            # unit tests, fully offline (laya is mocked)
-pytest -m slow    # opt-in: loads the real laya checkpoint
+pytest          # fast, offline unit tests; laya is mocked
+pytest -m slow  # opt in to loading the real checkpoint
 ```
+
+Useful project resources:
+
+- [`examples/compact_demo.py`](examples/compact_demo.py) — runnable eight-document demo.
+- [`docs/how-it-works-animation.html`](docs/how-it-works-animation.html) — dependency-free animated explainer.
+- [`docs/comparison-fast-jev.md`](docs/comparison-fast-jev.md) — architectural comparison with `fast-jev-compaction`.
+- [`docs/eval-summary.svg`](docs/eval-summary.svg) — visual benchmark summary used above.
+- [`docs/social-preview.png`](docs/social-preview.png) — repository social preview artwork.
+
+The project follows the same **delete, do not rewrite** principle as
+[fast-jev-compaction](https://github.com/tamaratran/fast-jev-compaction), but
+targets a different unit of work: retrieved documents instead of agent
+transcripts. laya-compactor is built on the Apache-2.0-licensed
+[laya decision engine](https://github.com/NandhaKishorM/laya).
 
 ## License
 
