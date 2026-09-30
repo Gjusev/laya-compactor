@@ -132,19 +132,45 @@ HotpotQA, the table shows it.
 
 ### Results
 
-Filled by `make eval`; the chart lands in `eval/results/summary.svg`
-(input tokens vs exact match). Until a keyed run happens, every cell below
-stays an explicit placeholder — no invented numbers:
+Measured with the harness above: 200 questions per dataset, BM25 top-20,
+generator and judge both `glm-5.3-flash` (temperature 0) via the Z.ai
+OpenAI-compatible API, shared budget of 1,000 tokens for the three budgeted
+policies, cost computed at Z.ai's published GLM-5.3-Flash credit multipliers
+(2.3 input / 8 output per 1M tokens). 7 of 1,600 generations and 7 judge
+calls failed on provider 4xx errors and are recorded as such in
+`eval/results/rows.jsonl`. Chart: `docs/eval-summary.svg` (input tokens vs
+exact match). `make eval` reproduces every number.
+
+**HotpotQA (multi-hop — the hard case)**
 
 | Metric | full | head | tail | laya-compactor |
 |---|---|---|---|---|
-| Avg input tokens | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
-| Exact match (HotpotQA) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
-| Exact match (SQuAD) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
-| LLM-judge win-rate vs full | 100% (ref) | TODO(measure) | TODO(measure) | TODO(measure) |
-| Gold docs kept (HotpotQA) | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
-| $ per 1,000 questions | TODO(measure) | TODO(measure) | TODO(measure) | TODO(measure) |
-| Compaction latency p50 (ms) | — | — | — | TODO(measure) |
+| Avg input tokens | 1440 | 1042 | 1041 | **979** |
+| Exact match | **0.230** | 0.175 | 0.110 | 0.200 |
+| LLM-judge win-rate vs full | 100% (ref) | 0.431 | 0.350 | **0.495** |
+| Gold docs kept | 1.000 | 0.875 | 0.588 | **0.945** |
+| Cost per 1,000 questions (credits) | 4.31 | 3.62 | 4.27 | **3.45** |
+| Compaction latency p50 | — | — | — | 6.3 s |
+
+**SQuAD (single-hop)**
+
+| Metric | full | head | tail | laya-compactor |
+|---|---|---|---|---|
+| Avg input tokens | 3214 | 1050 | 1040 | **973** |
+| Exact match | 0.345 | 0.320 | 0.265 | **0.345** |
+| LLM-judge win-rate vs full | 100% (ref) | 0.440 | 0.385 | **0.480** |
+| Gold docs kept | 0.735 | 0.590 | 0.495 | 0.655 |
+| Cost per 1,000 questions (credits) | 8.00 | 3.07 | 3.04 | **2.83** |
+| Compaction latency p50 | — | — | — | 10.0 s |
+
+Reading it honestly: on single-hop retrieval, compaction matches full-context
+quality (0.345 EM) at 30% of the tokens — the free lunch is real there. On
+multi-hop, laya-compactor keeps 87% of full's exact match (0.200 vs 0.230)
+with 68% of the tokens and beats both truncation baselines at the same
+budget, while retaining 94.5% of the answer-bearing documents (tail
+truncation keeps 58.8%). The residual gap on HotpotQA is the known cost of
+dropping any context; compaction latency p50 of 6–10 s per question is this
+desktop CPU, not the GPU figure laya documents — see limitations below.
 
 ## Integrations
 
@@ -197,13 +223,20 @@ and `devto_post.md`. Publish after a real `make eval` run fills the table.
 
 ## Honest limitations
 
-- Token counts are word-count estimates by default, not a provider tokenizer.
+- Token counting is a proxy: the library default is a word count, and the eval
+  harness enforces budgets with tiktoken `cl100k_base` — a stand-in for any
+  specific provider's tokenizer. It is applied identically to every policy, so
+  the comparison stays fair; absolute budgets may drift a few percent.
+- Compaction latency is hardware-dependent: the measured p50 is 6–10 s per
+  question on this desktop CPU; laya documents ~35 ms per decision on a T4 GPU.
+  Same model, different silicon.
 - A relevance score is calibrated, not a proof: a doc cut at 0.9 might have
   mattered. Tune `min_score` for your risk tolerance.
 - v1 is English-first (the default laya checkpoint); multilingual routing is a
   later concern.
-- Multi-hop questions can need "background" docs — the eval harness phase
-  measures exactly this failure mode instead of hiding it.
+- Multi-hop is the hard case and it is measured, not hidden: laya-compactor
+  kept 94.5% of answer-bearing HotpotQA docs but still lost 3 points of exact
+  match vs full context — cutting anything costs something on multi-hop.
 
 ## Development setup
 
