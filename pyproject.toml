@@ -12,6 +12,11 @@ license = { text = "Apache-2.0" }
 keywords = ["rag", "context-compaction", "token-optimization", "laya", "system-one"]
 dependencies = ["laya>=0.3"]
 
+[project.urls]
+Homepage = "https://github.com/Gjusev/laya-compactor"
+Repository = "https://github.com/Gjusev/laya-compactor"
+Issues = "https://github.com/Gjusev/laya-compactor/issues"
+
 [project.scripts]
 laya-compact = "laya_compactor.cli:main"
 
