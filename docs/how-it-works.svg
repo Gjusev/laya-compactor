@@ -1,71 +1,82 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" font-family="Segoe UI, Inter, sans-serif">
-  <!-- How laya-compactor works: static pipeline diagram -->
-  <rect width="1200" height="560" fill="#0b1220"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" font-family="'Helvetica Neue', Arial, sans-serif">
+  <!-- How laya-compactor works: light editorial pipeline diagram -->
+  <rect width="1200" height="580" fill="#f7f6f3"/>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9c9b97"/>
     </marker>
   </defs>
-  <text x="600" y="52" text-anchor="middle" font-size="28" font-weight="800" fill="#e5e7eb">How laya-compactor works</text>
-  <text x="600" y="82" text-anchor="middle" font-size="16" fill="#94a3b8">one forward pass scores every retrieved document — the budget decides, every cut gets a reason</text>
 
-  <!-- input: query + docs -->
-  <text x="150" y="140" text-anchor="middle" font-size="15" fill="#94a3b8">query + retrieved docs</text>
-  <rect x="45" y="160" width="210" height="44" rx="8" fill="#111c33" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="150" y="188" text-anchor="middle" font-size="16" fill="#e5e7eb">? Who invented the telephone?</text>
-  <g font-size="14">
-    <rect x="45" y="218" width="210" height="36" rx="8" fill="#111c33" stroke="#1e293b"/>
-    <text x="150" y="241" text-anchor="middle" fill="#e5e7eb">Bell patent, 1876</text>
-    <rect x="45" y="262" width="210" height="36" rx="8" fill="#111c33" stroke="#1e293b"/>
-    <text x="150" y="285" text-anchor="middle" fill="#e5e7eb">transcontinental call, 1915</text>
-    <rect x="45" y="306" width="210" height="36" rx="8" fill="#111c33" stroke="#1e293b"/>
-    <text x="150" y="329" text-anchor="middle" fill="#e5e7eb">Edison carbon microphone</text>
-    <rect x="45" y="350" width="210" height="36" rx="8" fill="#111c33" stroke="#1e293b"/>
-    <text x="150" y="373" text-anchor="middle" fill="#e5e7eb">Berlin Wall, 1989</text>
-    <rect x="45" y="394" width="210" height="36" rx="8" fill="#111c33" stroke="#1e293b"/>
-    <text x="150" y="417" text-anchor="middle" fill="#e5e7eb">Jenner, smallpox, 1796</text>
-    <text x="150" y="456" text-anchor="middle" fill="#94a3b8" font-size="13">(+ N more chunks)</text>
+  <!-- title, serif editorial, left-aligned -->
+  <text x="90" y="88" font-family="Georgia, 'Times New Roman', serif" font-size="44" fill="#191817" letter-spacing="-1">How laya-compactor works</text>
+  <text x="90" y="120" font-size="16" fill="#6f6e6b" font-family="Consolas, Menlo, monospace">one forward pass scores every retrieved document · the budget decides · every cut gets a reason</text>
+  <line x1="90" y1="142" x2="1110" y2="142" stroke="#eaeaea" stroke-width="1"/>
+
+  <!-- zone 1: input -->
+  <text x="90" y="182" font-size="13" fill="#6f6e6b" font-family="Consolas, Menlo, monospace" letter-spacing="2">QUERY + RETRIEVED DOCS</text>
+  <rect x="90" y="198" width="300" height="44" fill="#e1f3fe" rx="8"/>
+  <text x="106" y="226" font-size="17" fill="#1f6c9f" font-family="Consolas, Menlo, monospace">? invented the telephone</text>
+  <g font-size="15" fill="#191817">
+    <text x="90" y="280">Bell patent for the telephone, 1876</text>
+    <line x1="90" y1="292" x2="390" y2="292" stroke="#eaeaea"/>
+    <text x="90" y="318">First transcontinental call, 1915</text>
+    <line x1="90" y1="330" x2="390" y2="330" stroke="#eaeaea"/>
+    <text x="90" y="356">Edison's carbon microphone</text>
+    <line x1="90" y1="368" x2="390" y2="368" stroke="#eaeaea"/>
+    <text x="90" y="394">The Berlin Wall fell in 1989</text>
+    <line x1="90" y1="406" x2="390" y2="406" stroke="#eaeaea"/>
+    <text x="90" y="432">Jenner's smallpox vaccination, 1796</text>
   </g>
+  <text x="90" y="468" font-size="14" fill="#6f6e6b" font-family="Consolas, Menlo, monospace">+ N more chunks</text>
 
-  <!-- forward pass -->
-  <line x1="265" y1="280" x2="355" y2="280" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="365" y="200" width="230" height="160" rx="14" fill="#0f172a" stroke="#2563eb" stroke-width="2"/>
-  <text x="480" y="252" text-anchor="middle" font-size="19" font-weight="800" fill="#dbeafe">laya</text>
-  <text x="480" y="282" text-anchor="middle" font-size="15" fill="#e5e7eb">predict_batch</text>
-  <text x="480" y="308" text-anchor="middle" font-size="14" fill="#94a3b8">one shared forward pass</text>
-  <text x="480" y="334" text-anchor="middle" font-size="14" fill="#94a3b8">rubric: 0 irrelevant → 3 essential</text>
+  <!-- divider + arrow -->
+  <line x1="420" y1="180" x2="420" y2="470" stroke="#eaeaea"/>
+  <line x1="440" y1="320" x2="486" y2="320" stroke="#9c9b97" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-  <!-- scored docs -->
-  <line x1="605" y1="280" x2="695" y2="280" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="830" y="140" text-anchor="middle" font-size="15" fill="#94a3b8">scored docs, ranked</text>
-  <g font-size="14" font-weight="600">
-    <rect x="705" y="160" width="250" height="40" rx="8" fill="rgba(22,163,74,0.16)" stroke="#16a34a"/>
-    <text x="725" y="185" fill="#e5e7eb">Bell patent, 1876</text>
-    <text x="925" y="185" text-anchor="end" fill="#4ade80">2.48</text>
-    <rect x="705" y="208" width="250" height="40" rx="8" fill="rgba(22,163,74,0.16)" stroke="#16a34a"/>
-    <text x="725" y="233" fill="#e5e7eb">transcontinental call</text>
-    <text x="925" y="233" text-anchor="end" fill="#4ade80">1.64</text>
-    <rect x="705" y="256" width="250" height="40" rx="8" fill="rgba(22,163,74,0.16)" stroke="#16a34a"/>
-    <text x="725" y="281" fill="#e5e7eb">Edison microphone</text>
-    <text x="925" y="281" text-anchor="end" fill="#4ade80">1.36</text>
-    <rect x="705" y="304" width="250" height="40" rx="8" fill="rgba(220,38,38,0.14)" stroke="#dc2626" stroke-dasharray="5 4"/>
-    <text x="725" y="329" fill="#94a3b8" text-decoration="line-through">Berlin Wall, 1989</text>
-    <text x="925" y="329" text-anchor="end" fill="#f87171">0.20</text>
-    <rect x="705" y="352" width="250" height="40" rx="8" fill="rgba(220,38,38,0.14)" stroke="#dc2626" stroke-dasharray="5 4"/>
-    <text x="725" y="377" fill="#94a3b8" text-decoration="line-through">Jenner, smallpox</text>
-    <text x="925" y="377" text-anchor="end" fill="#f87171">0.05</text>
+  <!-- zone 2: engine -->
+  <text x="510" y="182" font-size="13" fill="#6f6e6b" font-family="Consolas, Menlo, monospace" letter-spacing="2">SCORE, ALL AT ONCE</text>
+  <rect x="510" y="205" width="200" height="230" fill="#ffffff" stroke="#eaeaea" rx="10"/>
+  <text x="610" y="290" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="42" fill="#191817">laya</text>
+  <text x="610" y="322" text-anchor="middle" font-size="15" fill="#191817" font-family="Consolas, Menlo, monospace">predict_batch</text>
+  <text x="610" y="356" text-anchor="middle" font-size="13" fill="#6f6e6b">one shared forward pass</text>
+  <text x="610" y="378" text-anchor="middle" font-size="13" fill="#6f6e6b">local checkpoint, no API</text>
+  <rect x="512" y="398" width="196" height="24" fill="#191817" rx="4"/>
+  <text x="610" y="415" text-anchor="middle" font-size="12" fill="#f7f6f3" font-family="Consolas, Menlo, monospace">0 irr · 1 bg · 2 rel · 3 ess</text>
+
+  <line x1="730" y1="320" x2="776" y2="320" stroke="#9c9b97" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- zone 3: ranked + cut -->
+  <text x="800" y="182" font-size="13" fill="#6f6e6b" font-family="Consolas, Menlo, monospace" letter-spacing="2">RANKED, THEN BUDGET-CUT</text>
+  <g font-size="15" font-family="Consolas, Menlo, monospace">
+    <text x="800" y="280" fill="#191817" font-family="'Helvetica Neue', Arial, sans-serif">Bell patent, 1876</text>
+    <rect x="1030" y="262" width="70" height="26" rx="13" fill="#edf3ec"/>
+    <text x="1065" y="280" text-anchor="middle" fill="#346538" font-weight="bold">2.48</text>
+    <line x1="800" y1="292" x2="1100" y2="292" stroke="#eaeaea"/>
+
+    <text x="800" y="318" fill="#191817" font-family="'Helvetica Neue', Arial, sans-serif">transcontinental call, 1915</text>
+    <rect x="1030" y="300" width="70" height="26" rx="13" fill="#edf3ec"/>
+    <text x="1065" y="318" text-anchor="middle" fill="#346538" font-weight="bold">1.64</text>
+    <line x1="800" y1="330" x2="1100" y2="330" stroke="#eaeaea"/>
+
+    <text x="800" y="356" fill="#191817" font-family="'Helvetica Neue', Arial, sans-serif">Edison carbon microphone</text>
+    <rect x="1030" y="338" width="70" height="26" rx="13" fill="#edf3ec"/>
+    <text x="1065" y="356" text-anchor="middle" fill="#346538" font-weight="bold">1.36</text>
+    <line x1="800" y1="368" x2="1100" y2="368" stroke="#eaeaea"/>
+
+    <text x="800" y="394" fill="#8f8e8a" text-decoration="line-through" font-family="'Helvetica Neue', Arial, sans-serif">Berlin Wall, 1989</text>
+    <rect x="1030" y="376" width="70" height="26" rx="13" fill="#fdebec"/>
+    <text x="1065" y="394" text-anchor="middle" fill="#9f2f2d" font-weight="bold">0.20</text>
+    <line x1="800" y1="406" x2="1100" y2="406" stroke="#eaeaea"/>
+
+    <text x="800" y="430" fill="#8f8e8a" text-decoration="line-through" font-family="'Helvetica Neue', Arial, sans-serif">Jenner, smallpox</text>
+    <rect x="1030" y="412" width="70" height="26" rx="13" fill="#fdebec"/>
+    <text x="1065" y="430" text-anchor="middle" fill="#9f2f2d" font-weight="bold">0.05</text>
   </g>
-  <text x="830" y="428" text-anchor="middle" font-size="13" fill="#fca5a5" font-family="Consolas, monospace">cut: score 0.20 below min_score 1.00</text>
-  <text x="830" y="450" text-anchor="middle" font-size="13" fill="#fca5a5" font-family="Consolas, monospace">cut: budget exhausted — needs 17 tokens, 6 left</text>
+  <text x="800" y="462" font-size="13" fill="#9f2f2d" font-family="Consolas, Menlo, monospace">cut: score 0.20 below min_score 1.00</text>
+  <text x="800" y="482" font-size="13" fill="#9f2f2d" font-family="Consolas, Menlo, monospace">cut: budget exhausted · needs 17 tokens, 6 left</text>
 
-  <!-- output -->
-  <line x1="965" y1="280" x2="1040" y2="280" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="1050" y="200" width="115" height="160" rx="14" fill="#0f172a" stroke="#16a34a" stroke-width="2"/>
-  <text x="1107" y="250" text-anchor="middle" font-size="16" font-weight="700" fill="#4ade80">compact</text>
-  <text x="1107" y="276" text-anchor="middle" font-size="14" fill="#e5e7eb">context</text>
-  <text x="1107" y="304" text-anchor="middle" font-size="14" fill="#94a3b8">verbatim,</text>
-  <text x="1107" y="326" text-anchor="middle" font-size="14" fill="#94a3b8">in budget</text>
-  <text x="1107" y="384" text-anchor="middle" font-size="13" fill="#4ade80" font-family="Consolas, monospace">38% saved</text>
-
-  <text x="600" y="515" text-anchor="middle" font-size="14" fill="#94a3b8">measured on SQuAD: identical answers to full context on 30% of the tokens</text>
+  <!-- footer stat -->
+  <line x1="90" y1="508" x2="1110" y2="508" stroke="#eaeaea"/>
+  <text x="90" y="548" font-family="Georgia, 'Times New Roman', serif" font-size="26" fill="#191817">Compact context, verbatim <tspan fill="#1f6c9f" font-weight="bold">38% saved</tspan></text>
+  <text x="1110" y="548" text-anchor="end" font-size="15" fill="#6f6e6b" font-family="Consolas, Menlo, monospace">SQuAD: same answers on 30% of the tokens</text>
 </svg>

@@ -3,106 +3,129 @@
 <head>
 <meta charset="utf-8">
 <title>laya-compactor — how it works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b1220; --panel: #0f172a; --line: #1e293b; --ink: #e5e7eb; --dim: #94a3b8;
-    --accent: #2563eb; --kept: #4ade80; --kept-bg: rgba(22,163,74,.16);
-    --cut: #f87171; --cut-bg: rgba(220,38,38,.14);
+    --bone: #f7f6f3; --paper: #ffffff; --hair: #eaeaea; --ink: #191817; --muted: #6f6e6b;
+    --blue: #1f6c9f; --blue-bg: #e1f3fe;
+    --green: #346538; --green-bg: #edf3ec;
+    --red: #9f2f2d; --red-bg: #fdebec;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font-family: "Segoe UI", Inter, system-ui, sans-serif; min-height: 100vh;
-         display: flex; flex-direction: column; align-items: center; padding: 32px 16px; }
-  h1 { font-size: 26px; margin: 0 0 4px; }
-  p.sub { color: var(--dim); margin: 0 0 24px; font-size: 15px; max-width: 720px; text-align: center; }
-  .board { display: flex; gap: 22px; align-items: stretch; flex-wrap: wrap; justify-content: center; max-width: 1100px; }
-  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; width: 320px; }
-  .col h2 { font-size: 13px; font-weight: 400; color: var(--dim); margin: 0 0 14px;
-            text-transform: uppercase; letter-spacing: .08em; }
-  .chip { position: relative; background: #111c33; border: 1px solid var(--line); border-radius: 10px;
-          padding: 10px 86px 10px 12px; margin-bottom: 8px; font-size: 14px; min-height: 44px;
-          transition: opacity .4s; }
-  .chip .badge { position: absolute; right: 10px; top: 9px; font-family: Consolas, monospace;
-                 font-size: 15px; font-weight: 600; border-radius: 6px; padding: 2px 8px;
-                 opacity: 0; transition: opacity .3s, transform .3s; transform: scale(.4); }
-  .chip.kept .badge { color: var(--kept); background: var(--kept-bg); border: 1px solid rgba(74,222,128,.4); }
-  .chip.cut .badge { color: var(--cut); background: var(--cut-bg); border: 1px solid rgba(248,113,113,.4); }
-  .chip .strike { position: absolute; left: 12px; top: 24px; height: 2px; width: 0; background: var(--cut);
-                  transition: width .35s ease-in; }
-  .chip .reason { font-family: Consolas, monospace; font-size: 13px; color: #fecaca;
-                  margin-top: 4px; max-height: 0; overflow: hidden; transition: max-height .35s, margin .35s; }
-  .chip.gone { opacity: .35; }
-  .chip.gone .strike { width: 96%; }
-  .chip.gone .reason { max-height: 20px; }
-  .chip.scored .badge { opacity: 1; transform: scale(1); }
-  .query { font-family: Consolas, monospace; font-size: 15px; color: var(--ink);
-           background: #111c33; border: 1px solid var(--accent); border-radius: 10px;
-           padding: 12px 14px; margin-bottom: 14px; }
-  .query .q { color: var(--dim); }
-  .engine { border-color: var(--accent); display: flex; flex-direction: column; gap: 10px; justify-content: center; text-align: center; }
-  .engine .big { font-size: 30px; font-weight: 800; color: #dbeafe; }
-  .engine .pill { align-self: center; background: var(--accent); color: #fff; font-weight: 700;
-                  font-size: 13px; border-radius: 8px; padding: 8px 14px; transform: rotate(-2deg); }
-  .engine small { color: var(--dim); font-size: 13px; line-height: 1.5; }
-  .out .stat { font-family: Consolas, monospace; font-size: 17px; color: var(--kept); margin-top: 10px; opacity: 0; transition: opacity .4s; }
-  .out .note { color: var(--dim); font-size: 13px; line-height: 1.6; margin-top: 14px; }
-  .controls { margin-top: 26px; display: flex; gap: 12px; }
-  button { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 12px 26px;
-           font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  button:hover { filter: brightness(1.1); }
-  .footer { color: var(--dim); font-size: 12px; margin-top: 18px; }
+  body { margin: 0; background: var(--bone); color: var(--ink); font-family: Geist, "SF Pro Display", sans-serif;
+         min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 20px; }
+  .lede { max-width: 760px; }
+  .lede h1 { font-family: "Instrument Serif", Georgia, serif; font-size: 44px; font-weight: 400;
+             letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 10px; }
+  .lede p { color: var(--muted); margin: 0 0 32px; font-size: 16px; line-height: 1.6; max-width: 62ch; }
+  .board { display: grid; grid-template-columns: 2.2fr 1fr 1.4fr; gap: 0; width: min(1240px, 100%);
+           background: var(--paper); border: 1px solid var(--hair); border-radius: 12px;
+           box-shadow: 0 20px 40px -15px rgba(0,0,0,0.05); overflow: hidden; }
+  .col { padding: 26px 30px; border-left: 1px solid var(--hair); }
+  .col:first-child { border-left: 0; }
+  .col h2 { font-family: "Geist Mono", monospace; font-size: 11px; font-weight: 400; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.14em; margin: 0 0 16px; }
+  .win-bar { display: flex; align-items: center; gap: 7px; margin-bottom: 18px; }
+  .win-bar i { width: 10px; height: 10px; border-radius: 50%; background: #d4d4d1; }
+  .query { font-family: "Geist Mono", monospace; font-size: 14px; color: var(--blue);
+           background: var(--blue-bg); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; }
+  .row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+         padding: 11px 0; border-bottom: 1px solid var(--hair); }
+  .row .left { display: flex; flex-direction: column; gap: 2px; }
+  .row .t { font-size: 14px; color: var(--ink); transition: color .45s var(--ease); }
+  .pill { font-family: "Geist Mono", monospace; font-size: 13px; font-weight: 600; border-radius: 9999px;
+          padding: 2px 11px; opacity: 0; transform: scale(0.3);
+          transition: opacity .35s var(--ease), transform .45s var(--ease); }
+  .pill.kept { color: var(--green); background: var(--green-bg); }
+  .pill.cut { color: var(--red); background: var(--red-bg); }
+  .strike { position: absolute; left: 0; top: 50%; height: 2px; width: 0; background: var(--red);
+            transition: width .4s var(--ease); }
+  .reason { font-family: "Geist Mono", monospace; font-size: 11px; color: var(--red);
+            max-height: 0; overflow: hidden; transition: max-height .4s var(--ease); }
+  .row.gone .t { color: #8f8e8a; text-decoration: line-through; text-decoration-color: var(--red); }
+  .row.gone .strike { width: 100%; }
+  .row.gone .reason { max-height: 18px; }
+  .row.scored .pill { opacity: 1; transform: scale(1); }
+  .engine { display: flex; flex-direction: column; justify-content: center; text-align: center; gap: 6px; }
+  .engine .serif { font-family: "Instrument Serif", Georgia, serif; font-size: 54px; line-height: 1; }
+  .engine .mono { font-family: "Geist Mono", monospace; font-size: 13px; color: var(--ink); }
+  .engine .sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .engine .rubric { align-self: center; font-family: "Geist Mono", monospace; font-size: 11px;
+                    color: var(--bone); background: var(--ink); border-radius: 4px;
+                    padding: 5px 10px; margin-top: 6px; white-space: nowrap; }
+  .kept-item { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hair);
+               font-size: 14px; color: var(--ink); }
+  .kept-item svg { flex: none; margin-top: 3px; }
+  .stat { font-family: "Geist Mono", monospace; font-size: 15px; font-weight: 600; color: var(--green);
+          margin-top: 14px; opacity: 0; transition: opacity .5s var(--ease); }
+  .note { color: var(--muted); font-size: 12.5px; line-height: 1.65; margin-top: 14px; }
+  .controls { margin-top: 28px; }
+  button { background: var(--ink); color: var(--bone); border: 0; border-radius: 6px; padding: 12px 28px;
+           font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit;
+           transition: transform .15s var(--ease), background .2s; }
+  button:hover { background: #333; }
+  button:active { transform: scale(0.98); }
+  .footer { color: var(--muted); font-family: "Geist Mono", monospace; font-size: 12px; margin-top: 22px; }
+  @media (max-width: 900px) { .board { grid-template-columns: 1fr; } .col { border-left: 0; border-top: 1px solid var(--hair); } }
 </style>
 </head>
 <body>
-  <h1>laya-compactor — how it works</h1>
-  <p class="sub">Score every retrieved chunk against the query in <b>one</b> shared forward pass,
-     then keep the most relevant chunks that fit the token budget. Nothing kept is ever rewritten;
-     everything cut gets a reason.</p>
+  <div class="lede">
+    <h1>How laya-compactor works</h1>
+    <p>Score every retrieved chunk against the query in one shared forward pass, then keep the
+       most relevant chunks that fit the token budget. Nothing kept is rewritten. Everything
+       cut gets a reason.</p>
+  </div>
 
   <div class="board">
     <div class="col">
       <h2>query + retrieved docs</h2>
-      <div class="query"><span class="q">query —</span> Who invented the telephone?</div>
+      <div class="win-bar"><i></i><i></i><i></i></div>
+      <div class="query">? Who invented the telephone?</div>
       <div id="docs">
-        <div class="chip kept" data-i="0">Alexander Graham Bell patented the telephone in 1876<span class="badge">2.48</span></div>
-        <div class="chip kept" data-i="1">First transcontinental telephone call, 1915<span class="badge">1.64</span></div>
-        <div class="chip kept" data-i="2">Bell's research on hearing and speech<span class="badge">1.56</span></div>
-        <div class="chip kept" data-i="3">Edison's carbon microphone made phones audible<span class="badge">1.36</span></div>
-        <div class="chip cut" data-i="4">Elisha Gray filed a caveat the same day<span class="badge">1.21</span><span class="strike"></span><div class="reason">budget exhausted: needs 17 tokens, 6 left</div></div>
-        <div class="chip cut" data-i="5">The Berlin Wall fell in 1989<span class="badge">0.20</span><span class="strike"></span><div class="reason">score 0.20 below min_score 1.00</div></div>
-        <div class="chip cut" data-i="6">Smallpox vaccination pioneered by Jenner, 1796<span class="badge">0.05</span><span class="strike"></span><div class="reason">score 0.05 below min_score 1.00</div></div>
-        <div class="chip cut" data-i="7">Stephenson's Rocket won at Rainhill<span class="badge">0.04</span><span class="strike"></span><div class="reason">score 0.04 below min_score 1.00</div></div>
+        <div class="row"><div class="left"><span class="t">Bell patent for the telephone, 1876</span></div><span class="pill kept">2.48</span></div>
+        <div class="row"><div class="left"><span class="t">First transcontinental call, 1915</span></div><span class="pill kept">1.64</span></div>
+        <div class="row"><div class="left"><span class="t">Bell's research on hearing and speech</span></div><span class="pill kept">1.56</span></div>
+        <div class="row"><div class="left"><span class="t">Edison's carbon microphone</span></div><span class="pill kept">1.36</span></div>
+        <div class="row"><div class="left"><span class="t">Elisha Gray's caveat, same day</span><div class="reason">budget exhausted: needs 17 tokens, 6 left</div></div><span class="pill cut">1.21</span></div>
+        <div class="row"><div class="left"><span class="t">The Berlin Wall fell in 1989</span><div class="reason">score 0.20 below min_score 1.00</div></div><span class="pill cut">0.20</span></div>
+        <div class="row"><div class="left"><span class="t">Jenner's smallpox vaccination, 1796</span><div class="reason">score 0.05 below min_score 1.00</div></div><span class="pill cut">0.05</span></div>
+        <div class="row"><div class="left"><span class="t">Stephenson's Rocket at Rainhill</span><div class="reason">score 0.04 below min_score 1.00</div></div><span class="pill cut">0.04</span></div>
       </div>
     </div>
 
     <div class="col engine">
-      <div class="pill" id="pill">ONE FORWARD PASS</div>
-      <div class="big">laya</div>
-      <small><b>predict_batch</b> scores the whole batch
-        against the relevance rubric<br>0 irrelevant · 1 background · 2 relevant · 3 essential</small>
-      <small>CPU-friendly, local checkpoint,<br>no per-chunk LLM calls</small>
+      <h2>score, all at once</h2>
+      <div class="serif">laya</div>
+      <div class="mono">predict_batch</div>
+      <div class="sub">one shared forward pass<br>local checkpoint, no API</div>
+      <div class="rubric">0 irr · 1 bg · 2 rel · 3 ess</div>
     </div>
 
     <div class="col out">
       <h2>compact context</h2>
-      <div class="query" style="border-color:#16a34a">kept — verbatim, most relevant first</div>
-      <div id="keptlist" style="color:var(--dim);font-size:14px;line-height:2.1">
-        ✓ Bell patent, 1876<br>✓ transcontinental call<br>✓ Bell's research<br>✓ Edison microphone
+      <div id="keptlist">
+        <div class="kept-item"><svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 7l3.5 3.5L12 2" stroke="#346538" stroke-width="2" fill="none"/></svg>Bell patent, 1876</div>
+        <div class="kept-item"><svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 7l3.5 3.5L12 2" stroke="#346538" stroke-width="2" fill="none"/></svg>transcontinental call</div>
+        <div class="kept-item"><svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 7l3.5 3.5L12 2" stroke="#346538" stroke-width="2" fill="none"/></svg>Bell's research</div>
+        <div class="kept-item"><svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 7l3.5 3.5L12 2" stroke="#346538" stroke-width="2" fill="none"/></svg>Edison microphone</div>
       </div>
       <div class="stat" id="stat">84/136 tokens — 38% saved</div>
-      <div class="note">Measured on SQuAD (200 questions): answers identical to full context
-        on 30% of the tokens. On multi-hop HotpotQA: 87% of full exact match at 68% of the
-        tokens — losses published, not hidden.</div>
+      <div class="note">Measured on SQuAD (200 questions): answers identical to full context on 30%
+        of the tokens. Multi-hop HotpotQA: 87% of full exact match on 68% of the tokens —
+        losses published, not hidden.</div>
     </div>
   </div>
 
-  <div class="controls"><button id="replay">▶ Replay</button></div>
+  <div class="controls"><button id="replay">Replay</button></div>
   <div class="footer">laya-compactor · Apache 2.0 · pip install laya-compactor</div>
 
 <script>
-  const chips = [...document.querySelectorAll("#docs .chip")];
+  const chips = [...document.querySelectorAll("#docs .row")];
   const stat = document.getElementById("stat");
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   function reset() {
     chips.forEach(c => c.classList.remove("scored", "gone"));
     stat.style.opacity = 0;
@@ -110,17 +133,14 @@
   async function run() {
     reset();
     await sleep(600);
-    // score badges pop one by one, in relevance order (highest first)
-    const order = [0, 1, 2, 3, 4, 5, 6, 7];
-    for (const i of order) {
+    for (let i = 0; i < 8; i++) {          // score pills pop, best first
       chips[i].classList.add("scored");
-      await sleep(280);
+      await sleep(260);
     }
-    await sleep(500);
-    // cuts collapse in relevance order (lowest first)
-    for (const i of [7, 6, 5, 4]) {
+    await sleep(450);
+    for (const i of [7, 6, 5, 4]) {        // cuts collapse, worst first
       chips[i].classList.add("gone");
-      await sleep(360);
+      await sleep(330);
     }
     stat.style.opacity = 1;
   }
