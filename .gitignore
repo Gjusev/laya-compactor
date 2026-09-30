@@ -18,3 +18,4 @@ htmlcov/
 Thumbs.db
 *.stackdump
 eval/results*/
+brag-output/

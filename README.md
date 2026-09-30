@@ -210,11 +210,24 @@ A runnable demo with the real checkpoint lives at
 `examples/compact_demo.py` — it compacts 8 passages about the invention of
 the telephone and prints what survived, what was cut, and each reason line.
 
+## Visuals
+
+- **Launch video** (18 s): `docs/launch/brag.mp4` — hook, the one-forward-pass
+  scoring sequence with real demo scores, the measured table, outro. Poster
+  frame: `docs/launch/brag-poster.jpg`. Made with Hyperframes; music
+  "Happy Beats / Business Moves vol. 12" by ende.app.
+- **How it works** (static): `docs/how-it-works.svg` — the full pipeline on
+  one page.
+- **How it works** (animated): `docs/how-it-works-animation.html` — open in
+  any browser, no dependencies; score badges pop, weak docs get struck
+  through with their reason lines, the counter lands.
+
 ## Launch kit
 
-Draft posts (with the measured sensitivity numbers and TODO(measure) eval
-placeholders — nothing invented) are in `docs/launch/`: `linkedin_post.md`
-and `devto_post.md`. Publish after a real `make eval` run fills the table.
+Posts (with the measured numbers, humanized and ready to publish) are in
+`docs/launch/`: `linkedin_post.md` and `devto_post.md`. Share copy for the
+video lives next to the working files (see `brag-output/share-copy.txt`
+locally; that directory is not committed).
 
 ## Roadmap
 
